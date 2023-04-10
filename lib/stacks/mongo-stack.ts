@@ -28,9 +28,9 @@ export class MongoStack extends cdk.Stack {
       allowAllOutbound: true,
     });
     mongoSG.addIngressRule(ec2.Peer.ipv4(props.cidr), ec2.Port.tcp(27017), 'allow access to mongoDB EC2 from internal ip range');
-    
+
     /** For testing purposes, opened only from specified IP */
-    //mongoSG.addIngressRule(ec2.Peer.ipv4(props.externalAccessIP), ec2.Port.tcp(22), 'allow SSH access from external IP');
+    mongoSG.addIngressRule(ec2.Peer.ipv4(props.externalAccessIP), ec2.Port.tcp(22), 'allow SSH access from selected external IP');
 
     /** Create role with permissions to operate ec2 */
     const mongoRole = new iam.Role(this, props.projectRssPrefix+'Role', {

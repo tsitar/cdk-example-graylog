@@ -2,6 +2,7 @@
 
 CLUSTER_IP_ARR=( {{CLUSTER_IPS_ARRAY}} )
 
+replica_init() {
   timeout=60
   while true; do
     if [[ "$(cat /tmp/mongoInit)" == "initDone" ]]; then
@@ -19,14 +20,16 @@ CLUSTER_IP_ARR=( {{CLUSTER_IPS_ARRAY}} )
   done
 
 
-# Initiate replica and add primary
-echo "rs.initiate()" | mongosh -u admin -p admin --authenticationDatabase admin >>/var/log/mongodb/mongo-init.log 2>&1
+  # Initiate replica and add primary
+  mongosh -u admin -p admin --eval "EJSON.stringify( rs.initiate() );" --authenticationDatabase admin --quiet -norc
 
+  # Add secondaries
+  for ip in ${CLUSTER_IP_ARR[@]}; do
+    mongosh -u admin -p admin --eval "EJSON.stringify( rs.add(\"${ip}\") );" --authenticationDatabase admin --quiet -norc
+  done
 
-# Add secondaries
-for ip in ${CLUSTER_IP_ARR[@]}; do
-    echo "rs.add(\"${ip}\")" | mongosh -u admin -p admin --authenticationDatabase admin >>/var/log/mongodb/mongo-init.log 2>&1
-done
+  # Print out the replica set status
+  mongosh -u admin -p admin --eval "EJSON.stringify( rs.status() );" --authenticationDatabase admin --quiet -norc
+}
 
-# Print out the replica set status
-echo "rs.status()" | mongosh -u admin -p admin --authenticationDatabase admin >>/var/log/mongodb/mongo-init.log 2>&1
+replica_init

@@ -20,10 +20,13 @@ name=MongoDB Repository
 baseurl=https://repo.mongodb.org/yum/amazon/2/mongodb-org/6.0/x86_64/
 gpgcheck=1
 enabled=1
-gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc' > /etc/yum.repos.d/mongodb-org-6.0.repo
+gpgkey=https://www.mongodb.org/static/pgp/server-6.0.asc' > '/etc/yum.repos.d/mongodb-org-6.0.repo'
+
 
   yum -y update
-  yum install -y mongodb-org
+
+  # Version is pinned as MongoDB may contain breaking changes even with third order minor version updates
+  yum install -y mongodb-org-6.0.5-1.amzn2
 }
 
 
@@ -36,8 +39,6 @@ set_config_file() {
 # Where and how to store data.
 storage:
   dbPath: /var/lib/mongo
-  journal:
-    enabled: true
 
 # where to write logging data.
 systemLog:
@@ -52,9 +53,8 @@ net:
 
 # how the process runs
 processManagement:
-  fork: true
   pidFilePath: /var/run/mongodb/mongod.pid
-' > /etc/mongod.conf
+' > '/etc/mongod.conf'
 
   systemctl restart mongod
   wait_for_process_startup
@@ -62,15 +62,21 @@ processManagement:
 
 
 set_access_roles() {
-  echo 'db.createUser({ user: "admin", pwd: "admin", roles: [ { role: "root", db: "admin" }  ] });' | mongosh admin 
-  echo 'disableTelemetry()' | mongosh admin -u admin -p admin >>/var/log/mongodb/mongo-init.log 2>&1
-  echo 'db.createUser({user: "gray",pwd: "gray",roles: [ { role: "readWrite", db: "graylog" } ] });' | mongosh graylog -u admin -p admin --authenticationDatabase admin >>/var/log/mongodb/mongo-init.log 2>&1
-  echo 'disableTelemetry()' | mongosh admin -u admin -p admin --authenticationDatabase admin >>/var/log/mongodb/mongo-init.log 2>&1
+  local result=""
+  systemctl status mongod
+
+  mongosh admin --eval "EJSON.stringify( db.createUser({ user: \"admin\", pwd: \"admin\", roles: [{ role: \"root\", db: \"admin\" }]}) );" --quiet -norc
+
+  mongosh graylog -u admin -p admin --eval "EJSON.stringify( db.createUser({user: \"gray\",pwd: \"gray\",roles: [{role: \"readWrite\", db: \"graylog\" }]}) );" --authenticationDatabase admin --quiet -norc
+
+  mongosh admin -u admin -p admin --eval "EJSON.stringify( disableTelemetry() );" --quiet -norc
+
+  mongosh graylog -u admin -p admin --eval "EJSON.stringify( disableTelemetry();" --authenticationDatabase admin --quiet -norc
+
 }
 
-
 enable_replicaset() {
-echo 'security:
+  echo 'security:
   authorization: enabled
   keyFile: /opt/mongod/keyfile
 replication:
@@ -119,6 +125,9 @@ wait_for_process_startup() {
       fi
     fi
   done
+
+  # Short deplay after the process comes up is still necessary otherwise the communication is unstable
+  sleep 5
 }
 
 setup_mongo

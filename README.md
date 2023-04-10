@@ -49,3 +49,7 @@ additional useful deploy params are:
 # 4 | Troubleshooting
 Missing Service Linked role:
 - if service-linked-role is missing in the account simply run "aws iam create-service-linked-role --aws-service-name es.amazonaws.com" in the AWS CLI
+Error: Is account ############ bootstrapped?
+- if this is the first time, you are using CDK, then you will need to bootstrap your account, simply run "cdk bootstrap" and it will prepare all necessary resources in the AWS for you
+- if you already have bootstrapped your account, try deleting the CDKToolkit stack and delete s3 bucket starting with CDK. This should fix it. Warning: This will break existing stacks, so use it only in sandbox accounts or accounts where you can afford loosing your data
+
